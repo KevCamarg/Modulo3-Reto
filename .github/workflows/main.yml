@@ -26,26 +26,35 @@ jobs:
     - name: Setup MSBuild
       uses: microsoft/setup-msbuild@v1
     
-    - name: Buscar archivo .sln
-      id: find-sln
+    - name: Buscar archivos de proyecto
+      id: find-projects
       run: |
+        # Buscar .sln primero
         $sln = Get-ChildItem -Recurse -Filter "*.sln" | Select-Object -First 1
-        if ($sln) {
-          Write-Host "✅ Solución encontrada: $($sln.FullName)"
-          echo "SLN_PATH=$($sln.FullName)" >> $env:GITHUB_OUTPUT
-          echo "SLN_DIR=$($sln.DirectoryName)" >> $env:GITHUB_OUTPUT
+        
+        # Si no hay .sln, buscar .csproj
+        if (-not $sln) {
+          $csproj = Get-ChildItem -Recurse -Filter "*.csproj" | Where-Object { $_.Name -notlike "*Tests*" } | Select-Object -First 1
+          if ($csproj) {
+            Write-Host "✅ Proyecto encontrado: $($csproj.FullName)"
+            echo "PROJECT_PATH=$($csproj.FullName)" >> $env:GITHUB_OUTPUT
+            echo "PROJECT_DIR=$($csproj.DirectoryName)" >> $env:GITHUB_OUTPUT
+            echo "USE_CSPROJ=true" >> $env:GITHUB_OUTPUT
+          }
         } else {
-          Write-Error "❌ No se encontró archivo .sln"
-          exit 1
+          Write-Host "✅ Solución encontrada: $($sln.FullName)"
+          echo "PROJECT_PATH=$($sln.FullName)" >> $env:GITHUB_OUTPUT
+          echo "PROJECT_DIR=$($sln.DirectoryName)" >> $env:GITHUB_OUTPUT
+          echo "USE_CSPROJ=false" >> $env:GITHUB_OUTPUT
         }
     
     - name: Restaurar paquetes NuGet
       run: |
-        cd "${{ steps.find-sln.outputs.SLN_DIR }}"
-        nuget restore "${{ steps.find-sln.outputs.SLN_PATH }}"
+        cd "${{ steps.find-projects.outputs.PROJECT_DIR }}"
+        nuget restore "${{ steps.find-projects.outputs.PROJECT_PATH }}"
     
-    - name: Compilar solución
-      run: msbuild "${{ steps.find-sln.outputs.SLN_PATH }}" /p:Configuration=${{ env.BUILD_CONFIGURATION }} /p:Platform="Any CPU"
+    - name: Compilar proyecto
+      run: msbuild "${{ steps.find-projects.outputs.PROJECT_PATH }}" /p:Configuration=${{ env.BUILD_CONFIGURATION }} /p:Platform="Any CPU"
     
     - name: Ejecutar tests unitarios
       run: |
@@ -81,7 +90,6 @@ jobs:
       with:
         files: 'TestResults/**/*.trx'
         check_name: 'Test Results'
-    
     - name: Subir artefactos de build
       uses: actions/upload-artifact@v4
       with:
@@ -89,6 +97,8 @@ jobs:
         path: |
           **/bin/${{ env.BUILD_CONFIGURATION }}/*.dll
           **/bin/${{ env.BUILD_CONFIGURATION }}/*.exe
+
+ 
 
 
   # ==================== ETAPA 2: ANÁLISIS DE SEGURIDAD ====================
