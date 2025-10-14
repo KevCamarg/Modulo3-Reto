@@ -7,7 +7,7 @@ on:
     branches: [ main ]
 
 env:
-  SOLUTION_FILE: 'LibreriaDigital.sln'
+  SOLUTION_FILE: '**/*.sln'  # Busca automáticamente tu .sln
   BUILD_CONFIGURATION: Release
   
 jobs:
@@ -26,39 +26,69 @@ jobs:
     - name: Setup MSBuild
       uses: microsoft/setup-msbuild@v1
     
+    - name: Buscar archivo .sln
+      id: find-sln
+      run: |
+        $sln = Get-ChildItem -Recurse -Filter "*.sln" | Select-Object -First 1
+        if ($sln) {
+          Write-Host "✅ Solución encontrada: $($sln.FullName)"
+          echo "SLN_PATH=$($sln.FullName)" >> $env:GITHUB_OUTPUT
+          echo "SLN_DIR=$($sln.DirectoryName)" >> $env:GITHUB_OUTPUT
+        } else {
+          Write-Error "❌ No se encontró archivo .sln"
+          exit 1
+        }
+    
     - name: Restaurar paquetes NuGet
-      run: nuget restore
+      run: |
+        cd "${{ steps.find-sln.outputs.SLN_DIR }}"
+        nuget restore "${{ steps.find-sln.outputs.SLN_PATH }}"
     
     - name: Compilar solución
-      run: msbuild /p:Configuration=${{ env.BUILD_CONFIGURATION }} /p:Platform="Any CPU"
+      run: msbuild "${{ steps.find-sln.outputs.SLN_PATH }}" /p:Configuration=${{ env.BUILD_CONFIGURATION }} /p:Platform="Any CPU"
     
     - name: Ejecutar tests unitarios
       run: |
+        # Buscar DLL de tests
         $testDll = Get-ChildItem -Path . -Filter "*Tests.dll" -Recurse | Where-Object { $_.FullName -like "*bin\${{ env.BUILD_CONFIGURATION }}*" } | Select-Object -First 1
+        
         if ($testDll) {
-          & "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\Common7\IDE\CommonExtensions\Microsoft\TestWindow\vstest.console.exe" $testDll.FullName /Logger:trx
+          Write-Host "✅ Tests encontrados en: $($testDll.FullName)"
+          
+          # Crear carpeta para resultados
+          New-Item -ItemType Directory -Force -Path "TestResults"
+          
+          # Ejecutar tests con vstest
+          $vstest = "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\Common7\IDE\CommonExtensions\Microsoft\TestWindow\vstest.console.exe"
+          if (Test-Path $vstest) {
+            & $vstest $testDll.FullName /Logger:"trx;LogFileName=TestResults.trx" /ResultsDirectory:"TestResults"
+          } else {
+            Write-Host "⚠️ vstest no encontrado, intentando con dotnet test"
+            dotnet test $testDll.FullName --logger "trx;LogFileName=TestResults.trx" --results-directory "TestResults"
+          }
+          
+          Write-Host "✅ Tests ejecutados"
         } else {
-          Write-Host "⚠️ No se encontraron archivos de tests"
+          Write-Host "⚠️ No se encontraron archivos de tests (*Tests.dll)"
+          Write-Host "Esto puede ser normal si no tienes proyecto de tests"
+          exit 0
         }
       continue-on-error: false
     
     - name: Publicar resultados de tests
-      uses: dorny/test-reporter@v1
+      uses: EnricoMi/publish-unit-test-result-action/composite@v2
       if: always()
       with:
-        name: 'Test Results'
-        path: '**/*.trx'
-        reporter: dotnet-trx
-        fail-on-error: true
+        files: 'TestResults/**/*.trx'
+        check_name: 'Test Results'
     
     - name: Subir artefactos de build
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v3
       with:
         name: build-artifacts
         path: |
           **/bin/${{ env.BUILD_CONFIGURATION }}/*.dll
           **/bin/${{ env.BUILD_CONFIGURATION }}/*.exe
-
 
   # ==================== ETAPA 2: ANÁLISIS DE SEGURIDAD ====================
   security-scan:
@@ -95,7 +125,7 @@ jobs:
           }
         }
         EOF
-        npx eslint "app.js" || echo "⚠️ Se encontraron problemas de seguridad en JS"
+        npx eslint "**/*.js" || echo "⚠️ Se encontraron problemas de seguridad en JS"
 
   # ==================== ETAPA 3: CODEQL ANALYSIS ====================
   codeql:
