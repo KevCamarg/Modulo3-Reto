@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="css/styles.css">
+    <title>Biblioteca Digital</title>
+</head>
+<body>
+    <h1>Bienvenido a la Biblioteca Digital</h1>
+    
+    <header>
+    <nav>
+        <ul>
+            <li><a href="#" id="books-link" style="display: none;">Libros</a></li>
+            <li><a href="#" id="loans-link" style="display: none;">Préstamos</a></li>
+            <li><a href="#" id="login-link" onclick="showLogin()">Iniciar Sesión</a></li>
+            <li><a href="#" id="register-link" onclick="showRegister()">Registrarse</a></li>
+            <li><a href="#" id="logout-link" style="display: none;" onclick="logout()">Cerrar Sesión</a></li>
+        </ul>
+    </nav>
+    </header>
+    <div id="content"></div>
+    
+  
+    <!-- Formulario para registrar un libro -->
+    <form id="book-form" onsubmit="event.preventDefault(); registerBook();" style="display: none;">
+        <h2>Registrar Libro</h2>
+        <label for="book-title">Título:</label>
+        <input type="text" id="book-title" required>
+        <br>
+        <label for="book-author">Autor:</label>
+        <input type="text" id="book-author" required>
+        <br>
+        <label for="book-isbn">ISBN:</label>
+        <input type="text" id="book-isbn">
+        <br>
+        <label for="book-quantity">Cantidad:</label>
+        <input type="number" id="book-quantity" required>
+        <br>
+        <button type="submit">Registrar Libro</button>
+    </form>
+
+    <!-- Formulario para editar un libro -->
+    <form id="edit-book-form" onsubmit="editBook(); return false;" style="display: none;">
+        <h2>Editar Libro</h2>
+        <input type="hidden" id="edit-book-id">
+        <label for="edit-book-title">Título:</label>
+        <input type="text" id="edit-book-title" required>
+        <br>
+        <label for="edit-book-author">Autor:</label>
+        <input type="text" id="edit-book-author" required>
+        <br>
+        <label for="edit-book-isbn">ISBN:</label>
+        <input type="text" id="edit-book-isbn">
+        <br>
+        <label for="edit-book-quantity">Cantidad:</label>
+        <input type="number" id="edit-book-quantity" required>
+        <br>
+        <button type="submit">Actualizar Libro</button>
+    </form>
+
+    <!-- Formulario para registrar un préstamo -->
+    <form id="loan-form" onsubmit="event.preventDefault(); registerLoan();" style="display: none;">
+        <h2>Registrar Préstamo</h2>
+        <label for="loan-book-id">ID del Libro:</label>
+        <input type="text" id="loan-book-id" required>
+        <br>
+        <label for="loan-user-id">ID del Usuario:</label>
+        <input type="text" id="loan-user-id" required>
+        <br>
+        <label for="loan-date">Fecha de Préstamo:</label>
+        <input type="date" id="loan-date" required>
+        <br>
+        <label for="due-date">Fecha de Entrega:</label>
+        <input type="date" id="due-date" required>
+        <br>
+        <button type="submit">Registrar Préstamo</button>
+    </form>
+
+    <!-- Formulario para editar un préstamo -->
+    <form id="edit-loan-form" onsubmit="event.preventDefault(); editLoanFromForm();" style="display: none;">
+        <h2>Editar Préstamo</h2>
+        <input type="hidden" id="edit-loan-id">
+        <label for="edit-loan-book-id">ID del Libro:</label>
+        <input type="text" id="edit-loan-book-id" required>
+        <br>
+        <label for="edit-loan-user-id">ID del Usuario:</label>
+        <input type="text" id="edit-loan-user-id" required>
+        <br>
+        <label for="edit-loan-date">Fecha de Préstamo:</label>
+        <input type="date" id="edit-loan-date" required>
+        <br>
+        <label for="edit-due-date">Fecha de Entrega:</label>
+        <input type="date" id="edit-due-date" required>
+        <br>
+        <button type="submit">Actualizar Préstamo</button>
+    </form>
+
+    <script src="js/app.js"></script>
+    <script>
+        // Función para verificar el estado de la sesión
+        function checkSession() {
+            const token = localStorage.getItem('token');
+            if (token) {
+                // Si hay sesión activa
+                document.getElementById('books-link').style.display = 'inline';
+                document.getElementById('loans-link').style.display = 'inline';
+                document.getElementById('logout-link').style.display = 'inline';
+                document.getElementById('login-link').style.display = 'none';
+                document.getElementById('register-link').style.display = 'none';
+
+                // Ocultar todo por defecto
+                document.getElementById('register-form').style.display = 'none';
+                document.getElementById('book-form').style.display = 'none';
+                document.getElementById('edit-book-form').style.display = 'none';
+                document.getElementById('loan-form').style.display = 'none';
+                document.getElementById('edit-loan-form').style.display = 'none';
+
+                // Limpia el contenedor dinámico
+                document.getElementById('content').innerHTML = "";
+
+            } else {
+                // Si NO hay sesión activa
+                document.getElementById('books-link').style.display = 'none';
+                document.getElementById('loans-link').style.display = 'none';
+                document.getElementById('logout-link').style.display = 'none';
+                document.getElementById('login-link').style.display = 'inline';
+                document.getElementById('register-link').style.display = 'inline';
+
+                // 🔴 Ocultar TODOS los formularios
+                document.getElementById('register-form').style.display = 'none';
+                document.getElementById('book-form').style.display = 'none';
+                document.getElementById('edit-book-form').style.display = 'none';
+                document.getElementById('loan-form').style.display = 'none';
+                document.getElementById('edit-loan-form').style.display = 'none';
+
+                // Limpiar el contenido dinámico
+                document.getElementById('content').innerHTML = "";
+            }
+        }
+
+
+
+        // Función para mostrar el formulario de inicio de sesión
+        function showLogin() {
+            document.getElementById('login-form').style.display = 'block';
+            document.getElementById('register-form').style.display = 'none';
+            document.getElementById('loan-form').style.display = 'none';
+            document.getElementById('edit-loan-form').style.display = 'none';
+        }
+
+        // Función para mostrar el formulario de registrar libro
+        function showBookForm() {
+            document.getElementById('book-form').style.display = 'block';
+            document.getElementById('edit-book-form').style.display = 'none';
+        }
+
+        // Función para mostrar el formulario de editar libro
+        function showEditBookForm(book) {
+            // Asegúrate de que book no sea null/undefined
+            if (!book) {
+                alert("Error: libro no válido.");
+                return;
+            }
+
+            // Asignar valores a los campos del formulario de edición
+            document.getElementById("edit-book-id").value = book.Id || '';
+            document.getElementById("edit-book-title").value = book.Title || '';
+            document.getElementById("edit-book-author").value = book.Author || '';
+            document.getElementById("edit-book-isbn").value = book.ISBN || '';
+            document.getElementById("edit-book-quantity").value = book.Quantity || '';
+
+            // Mostrar el formulario de edición y ocultar el formulario de registro
+            document.getElementById("edit-book-form").style.display = "block";
+            document.getElementById("book-form").style.display = "none"; // Asegúrate de ocultar el formulario de registro
+            document.getElementById("content").style.display = "none"; // Ocultar el contenido principal
+        }
+
+        // Función para mostrar el formulario de registro
+        function showRegister() {
+            document.getElementById('register-form').style.display = 'block';
+            document.getElementById('login-form').style.display = 'none';
+            document.getElementById('loan-form').style.display = 'none';
+            document.getElementById('edit-loan-form').style.display = 'none';
+        }
+
+        // Función para mostrar el formulario de registrar préstamo
+        function showLoanForm() {
+            document.getElementById('loan-form').style.display = 'block';
+            document.getElementById('edit-loan-form').style.display = 'none';
+        }
+
+        // Función para mostrar el formulario de editar préstamo
+        function showEditLoanForm(loan) {
+            if (!loan) {
+                alert("Error: préstamo no válido.");
+                return;
+            }
+
+            document.getElementById('edit-loan-id').value = loan.Id || '';
+            document.getElementById('edit-loan-book-id').value = loan.BookId || '';
+            document.getElementById('edit-loan-user-id').value = loan.UserId || '';
+
+            document.getElementById('edit-loan-date').value = loan.LoanDate ? loan.LoanDate.split('T')[0] : '';
+            document.getElementById('edit-due-date').value = loan.DueDate ? loan.DueDate.split('T')[0] : '';
+
+            document.getElementById('edit-loan-form').style.display = 'block';
+            document.getElementById('loan-form').style.display = 'none';
+            document.getElementById("content").style.display = "none";
+        }
+
+
+        // Función para cerrar sesión
+        function logout() {
+            localStorage.removeItem('token'); // Eliminar el token del almacenamiento local
+            checkSession(); // Verificar el estado de la sesión nuevamente
+        }
+
+        // Llamar a checkSession al cargar la página
+        window.onload = checkSession;
+    </script>
+</body>
+</html>
