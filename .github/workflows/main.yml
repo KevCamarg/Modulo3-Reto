@@ -83,12 +83,13 @@ jobs:
         check_name: 'Test Results'
     
     - name: Subir artefactos de build
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: build-artifacts
         path: |
           **/bin/${{ env.BUILD_CONFIGURATION }}/*.dll
           **/bin/${{ env.BUILD_CONFIGURATION }}/*.exe
+
 
   # ==================== ETAPA 2: ANÁLISIS DE SEGURIDAD ====================
   security-scan:
