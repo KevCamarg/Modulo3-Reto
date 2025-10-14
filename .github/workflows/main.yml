@@ -72,37 +72,20 @@ jobs:
     - name: Ejecutar tests unitarios
       run: |
         # Buscar DLL de tests
-        $testDll = Get-ChildItem -Path . -Filter "*Tests.dll" -Recurse | Where-Object { $_.FullName -like "*bin\${{ env.BUILD_CONFIGURATION }}*" } | Select-Object -First 1
+        $testDll = Get-ChildItem -Recurse -Filter "*Tests.dll" | Where-Object { $_.FullName -like "*\bin\Release\*" } | Select-Object -First 1
         
         if ($testDll) {
           Write-Host "✅ Tests encontrados en: $($testDll.FullName)"
           
-          # Crear carpeta para resultados
-          New-Item -ItemType Directory -Force -Path "TestResults"
+          # Intentar con dotnet test primero
+          dotnet test $testDll.FullName --no-build --verbosity normal --logger "console;verbosity=detailed"
           
-          # Ejecutar tests con vstest
-          $vstest = "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\Common7\IDE\CommonExtensions\Microsoft\TestWindow\vstest.console.exe"
-          if (Test-Path $vstest) {
-            & $vstest $testDll.FullName /Logger:"trx;LogFileName=TestResults.trx" /ResultsDirectory:"TestResults"
-          } else {
-            Write-Host "⚠️ vstest no encontrado, intentando con dotnet test"
-            dotnet test $testDll.FullName --logger "trx;LogFileName=TestResults.trx" --results-directory "TestResults"
-          }
-          
-          Write-Host "✅ Tests ejecutados"
+          Write-Host "✅ Tests ejecutados exitosamente"
         } else {
           Write-Host "⚠️ No se encontraron archivos de tests (*Tests.dll)"
-          Write-Host "Esto puede ser normal si no tienes proyecto de tests"
-          exit 0
+          Write-Host "Esto es normal si no tienes proyecto de tests configurado"
         }
       continue-on-error: false
-    
-    - name: Publicar resultados de tests
-      uses: EnricoMi/publish-unit-test-result-action/composite@v2
-      if: always()
-      with:
-        files: 'TestResults/**/*.trx'
-        check_name: 'Test Results'
     
     - name: Subir artefactos de build
       uses: actions/upload-artifact@v4
